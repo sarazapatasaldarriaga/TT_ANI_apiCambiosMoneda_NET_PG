@@ -1,0 +1,74 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "apimonedasnet"
+        DOCKER_REGISTRY = "docker.io"  // Cambiar según el registry que uses, como DockerHub, GitLab, etc.
+        DOCKER_TAG = "latest"
+        CONTAINER_NAME = 'dockerapimonedasnet'
+        DOCKER_NETWORK = 'dockerdbmonedas_red'
+        DOCKER_BUILD_DIR = 'presentacion'
+        HOST_PORT = '5235'
+        CONTAINER_PORT = '5236'
+    }
+
+    
+
+    stages {
+
+        stage('Limpiar contenedor existente'){
+            steps{
+                script{
+                   /* catchError(buildResult: 'SUCCESS', stageResult:'UNSTABLE'){
+                        bat """
+                        docker container inspect ${CONTAINER_NAME} >nul 2>&1 && (
+                        docker contaienr stop ${CONTAINER_NAME}
+                        docker container rm ${CONTAINER_NAME}
+                        ) || echo "No existe el contenedor '${CONTAINER_NAME}'."
+                    */
+                     bat 'docker rm -f dockerapimonedasnet || exit 0'
+                    }
+                }
+            }
+
+
+        stage('Checkout') {
+            steps {
+                // Clonar el repositorio
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    echo "Building Docker image"
+                    sh 'docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .'
+                }
+            }
+        }
+
+        stage('Run Unit Tests') {
+            steps {
+                script {
+                    // Si tienes tests, puedes ejecutarlos aquí (asegúrate de tener un contenedor de tests o ejecución adecuada)
+                    // Por ejemplo, podrías correr los tests dentro de Docker, si están configurados para eso:
+                    echo "Running Unit Tests"
+                     sh 'dotnet test .\apiCambiosMoneda.Test\apiCambiosMoneda.Test.csproj --configuration release'
+                }
+            }
+        }
+
+    
+
+        stage('Deploy Docker Image') {
+            steps {
+                script {
+                    echo "Deploying Docker image"
+                    docker run -e ASPNETCORE_URLS="http://+:5235" -p 5236:5235 --name dockerapimonedasnet --network redmonedas -d apimonedasnet
+                }
+            }
+        }
+    }
+
+}
